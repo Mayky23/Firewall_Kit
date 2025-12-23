@@ -24,7 +24,7 @@ shopt -s nullglob
 
 readonly CONFIG_FILE="/etc/firewall-manager.conf"
 readonly BACKUP_DIR="/var/backups/firewall-manager"
-readonly VERSION="1.0"
+readonly VERSION="1.1"
 
 PM=""
 DRY_RUN=0   # 0 = normal, 1 = no aplica cambios (simulación)
@@ -668,7 +668,7 @@ menu_principal() {
     while true; do
         clear 2>/dev/null || true
         echo -e "${C_BOLD}===============================${C_RESET}"
-        echo -e "${C_BOLD}   Gestor de Firewall (ufw)    ${C_RESET}"
+        echo -e "${C_BOLD}   Firewall Kit (ufw)    ${C_RESET}"
         echo -e "${C_BOLD}===============================${C_RESET}"
         load_config
         echo "Versión script:     $VERSION"

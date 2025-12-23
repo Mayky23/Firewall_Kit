@@ -67,7 +67,7 @@ sudo ./firewall.sh
 ===============================
    Firewall_Kit (ufw)
 ===============================
-Versión script:     1.0
+Versión script:     1.1
 Puerto SSH actual:  22
 LAN SSH permitida:  0.0.0.0/0
 Backups en:         /var/backups/firewall-manager
