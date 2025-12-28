@@ -48,7 +48,7 @@ Está pensado para **administradores de sistemas**, servidores Linux y entornos 
 ## ⚙️ Instalación
 
 ```bash
-git clone <repositorio>
+git clone https://github.com/Mayky23/Firewall_Kit
 cd Firewall_Kit
 chmod +x firewall.sh
 ```
