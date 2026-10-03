@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# logger falso: los tests no escriben en syslog
+exit 0

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# service falso: los tests usan siempre el systemctl falso
+exit 1

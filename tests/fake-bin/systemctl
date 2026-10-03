@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# systemctl falso: un "restart" de SSH hace que el ss falso vea los puertos
+# de la configuración actual (salvo con FAKE_NO_LISTEN=1).
+echo "systemctl $*" >> "$FK_ROOT/systemctl.log"
+case "${1:-}" in
+    is-active)
+        shift
+        [[ "${1:-}" == "--quiet" ]] && shift
+        if [[ "${1:-}" == "ssh.socket" && -n "${FAKE_SSH_SOCKET:-}" ]]; then exit 0; fi
+        exit 3
+        ;;
+    cat)
+        [[ "${2:-}" == "ssh.service" ]] && exit 0
+        exit 1
+        ;;
+    restart)
+        if [[ -z "${FAKE_NO_LISTEN:-}" ]]; then
+            sshd -T | awk '$1 == "port" { print $2 }' > "$FK_ROOT/listening"
+        fi
+        exit 0
+        ;;
+esac
+exit 0

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# sshd falso: "-t" valida lo básico (Port dentro de Match, puerto fuera de
+# rango) y "-T" imprime los puertos, resolviendo sshd_config.d como sshd.
+set -u
+mode=""
+file="$FK_ROOT/etc/ssh/sshd_config"
+while (( $# > 0 )); do
+    case "$1" in
+        -t) mode="t" ;;
+        -T) mode="T" ;;
+        -f) file="$2"; shift ;;
+    esac
+    shift
+done
+files=("$file")
+if grep -qiE '^[[:space:]]*Include[[:space:]].*sshd_config\.d' "$file"; then
+    for f in "$FK_ROOT"/etc/ssh/sshd_config.d/*.conf; do
+        [[ -f "$f" ]] && files+=("$f")
+    done
+fi
+if [[ "$mode" == "t" ]]; then
+    if [[ -n "${FAKE_SSHD_T_FAIL:-}" ]]; then
+        echo "fallo simulado de sshd -t"
+        exit 255
+    fi
+    awk 'FNR == 1 { m = 0 }
+        { t = $0; sub(/^[ \t]+/, "", t); lt = tolower(t) }
+        lt ~ /^match[ \t]/ { m = 1 }
+        lt ~ /^port([ \t]|=)/ {
+            split(t, f, /[ \t=]+/)
+            if (m) { print FILENAME ": Directive Port is not allowed within a Match block"; bad = 1 }
+            if (f[2] !~ /^[0-9]+$/ || f[2] + 0 < 1 || f[2] + 0 > 65535) { print FILENAME ": Badly formatted port number."; bad = 1 }
+        }
+        END { exit bad ? 255 : 0 }' "${files[@]}"
+    exit $?
+fi
+if [[ "$mode" == "T" ]]; then
+    ports=$(awk '{ t = $0; sub(/^[ \t]+/, "", t) }
+        tolower(t) ~ /^port([ \t]|=)/ { split(t, f, /[ \t=]+/); print f[2] + 0 }' "${files[@]}" | sort -un)
+    for p in ${ports:-22}; do
+        echo "port $p"
+    done
+    echo "permitrootlogin no"
+fi
+exit 0
