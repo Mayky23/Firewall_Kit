@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# ufw falso para los tests: guarda el estado en $FK_ROOT/etc/ufw y registra
+# cada llamada en $FK_ROOT/ufw.log. Imita los mensajes y códigos de salida de
+# ufw 0.36 que usa firewall.sh.
+set -u
+STATE="$FK_ROOT/etc/ufw"
+RULES="$STATE/user.rules"
+CONF="$STATE/ufw.conf"
+mkdir -p "$STATE"
+touch "$RULES"
+[[ -f "$CONF" ]] || echo "ENABLED=no" > "$CONF"
+echo "$*" >> "$FK_ROOT/ufw.log"
+
+args=()
+for a in "$@"; do
+    [[ "$a" == "--force" ]] || args+=("$a")
+done
+set -- "${args[@]}"
+
+if [[ -n "${FAKE_UFW_FAIL_ON:-}" && " $* " == *" ${FAKE_UFW_FAIL_ON} "* ]]; then
+    echo "ERROR: fallo simulado"
+    exit 1
+fi
+
+enabled() { grep -q '^ENABLED=yes' "$CONF"; }
+
+case "${1:-}" in
+    status)
+        if enabled; then echo "Status: active"; else echo "Status: inactive"; fi
+        ;;
+    show)
+        echo "Added user rules (see 'ufw status' for running firewall):"
+        if [[ -s "$RULES" ]]; then
+            while IFS=$'\t' read -r act rest comment; do
+                if [[ -n "$comment" ]]; then
+                    echo "ufw $act $rest comment '$comment'"
+                else
+                    echo "ufw $act $rest"
+                fi
+            done < "$RULES"
+        else
+            echo "(None)"
+        fi
+        ;;
+    reset)
+        : > "$RULES"
+        echo "ENABLED=no" > "$CONF"
+        echo "Resetting all rules to installed defaults."
+        ;;
+    default) echo "Default $3 policy changed to '$2'" ;;
+    enable)
+        echo "ENABLED=yes" > "$CONF"
+        echo "Firewall is active and enabled on system startup"
+        ;;
+    disable)
+        echo "ENABLED=no" > "$CONF"
+        echo "Firewall stopped and disabled on system startup"
+        ;;
+    reload)
+        if enabled; then echo "Firewall reloaded"; else echo "Firewall not enabled (skipping reload)"; fi
+        ;;
+    allow|limit|deny|reject)
+        act="$1"
+        shift
+        comment=""
+        parts=()
+        while (( $# > 0 )); do
+            if [[ "$1" == "comment" ]]; then
+                comment="${2:-}"
+                shift 2
+                continue
+            fi
+            parts+=("$1")
+            shift
+        done
+        for w in "${parts[@]}"; do
+            if [[ "$w" == */ || "$w" == bad* ]]; then
+                echo "ERROR: Bad source address"
+                exit 1
+            fi
+        done
+        if [[ "$comment" == *"'"* ]]; then
+            echo "ERROR: Invalid syntax"
+            exit 1
+        fi
+        rest="${parts[*]}"
+        tmp=$(mktemp)
+        found=""
+        while IFS=$'\t' read -r a r c; do
+            if [[ "$r" == "$rest" ]]; then
+                found="$a|$c"
+                printf '%s\t%s\t%s\n' "$act" "$rest" "$comment"
+            else
+                printf '%s\t%s\t%s\n' "$a" "$r" "$c"
+            fi
+        done < "$RULES" > "$tmp"
+        if [[ -z "$found" ]]; then
+            printf '%s\t%s\t%s\n' "$act" "$rest" "$comment" >> "$tmp"
+            echo "Rule added"
+        elif [[ "$found" == "$act|$comment" ]]; then
+            echo "Skipping adding existing rule"
+        else
+            echo "Rule updated"
+        fi
+        cat "$tmp" > "$RULES"
+        rm -f "$tmp"
+        ;;
+    delete)
+        shift
+        act="${1:-}"
+        shift
+        rest="$*"
+        tmp=$(mktemp)
+        deleted=0
+        while IFS=$'\t' read -r a r c; do
+            if (( ! deleted )) && [[ "$a" == "$act" && "$r" == "$rest" ]]; then
+                deleted=1
+                continue
+            fi
+            printf '%s\t%s\t%s\n' "$a" "$r" "$c"
+        done < "$RULES" > "$tmp"
+        cat "$tmp" > "$RULES"
+        rm -f "$tmp"
+        if (( deleted )); then
+            echo "Rule deleted"
+        else
+            # ufw real devuelve 0 en este caso
+            echo "Could not delete non-existent rule"
+        fi
+        ;;
+    *)
+        echo "ERROR: comando no soportado por el ufw falso: $*"
+        exit 1
+        ;;
+esac
+exit 0

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# ss falso: responde a 'ss -ltn "( sport = :N )"' según $FK_ROOT/listening
+port=$(printf '%s' "$*" | sed -n 's/.*sport = :\([0-9]*\).*/\1/p')
+echo "State  Recv-Q Send-Q Local Address:Port Peer Address:Port"
+if [[ -n "$port" ]] && grep -qx "$port" "$FK_ROOT/listening" 2>/dev/null; then
+    echo "LISTEN 0      128    0.0.0.0:$port      0.0.0.0:*"
+fi
+exit 0
